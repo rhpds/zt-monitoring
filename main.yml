@@ -34,26 +34,22 @@
       shell: python3 /tmp/monitoring.py
       register: r_mon_output
 
-    - name: Set config_host variable with ansible_host value
-      set_fact:
-        config_host: "{{ ansible_host }}"
-
     - name: Set monitoring data
       set_fact:
         mon_data: "{{ r_mon_output.stdout | from_json }}"
 
     - name: Insert CPU usage into the SQLite database
       delegate_to: localhost
-      command: sqlite3 {{ DB_PATH }} "INSERT INTO cpu_usage (host,cpu_usage) VALUES ('{{ config_host }}', {{ mon_data.cpu_usage }})"
+      command: sqlite3 {{ DB_PATH }} "INSERT INTO cpu_usage (host,cpu_usage) VALUES ('{{ inventory_hostname }}', {{ mon_data.cpu_usage }})"
 
     - name: Insert memory usage into the SQLite database
       delegate_to: localhost
-      command: sqlite3 {{ DB_PATH }} "INSERT INTO memory_usage (host,memory_usage) VALUES ('{{ config_host }}', {{ mon_data.memory_usage }})"
+      command: sqlite3 {{ DB_PATH }} "INSERT INTO memory_usage (host,memory_usage) VALUES ('{{ inventory_hostname }}', {{ mon_data.memory_usage }})"
 
     - name: Insert disk usage into the SQLite database
       delegate_to: localhost
-      command: sqlite3 {{ DB_PATH }} "INSERT INTO disk_usage (host, read,write) VALUES ('{{ config_host }}', {{ mon_data.disk_usage_read }}, {{ mon_data.disk_usage_write }})"
+      command: sqlite3 {{ DB_PATH }} "INSERT INTO disk_usage (host, read,write) VALUES ('{{ inventory_hostname }}', {{ mon_data.disk_usage_read }}, {{ mon_data.disk_usage_write }})"
 
     - name: Insert network usage into the SQLite database
       delegate_to: localhost
-      command: sqlite3 {{ DB_PATH }} "INSERT INTO network_usage (host,received, sent) VALUES ('{{ config_host }}', {{ mon_data.network_usage_received}}, {{ mon_data.network_usage_sent }})"
+      command: sqlite3 {{ DB_PATH }} "INSERT INTO network_usage (host,received, sent) VALUES ('{{ inventory_hostname }}', {{ mon_data.network_usage_received}}, {{ mon_data.network_usage_sent }})"
