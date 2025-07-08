@@ -37,8 +37,36 @@ CREATE TABLE IF NOT EXISTS network_usage (
 );
 EOF
 fi
-fastapi dev --host 0.0.0.0 --port 9999 api.py  &
-while [ true ]; do
-  ansible-playbook main.yml
-  sleep 5
+
+# Set default values for watch interval and timeout
+WATCH_INTERVAL=${WATCH_INTERVAL:-5}
+TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-4}
+
+# Start FastAPI server in background
+fastapi dev --host 0.0.0.0 --port 9999 api.py &
+
+# Function to handle graceful shutdown
+cleanup() {
+    echo "Received shutdown signal, stopping..."
+    # Kill background processes
+    kill $(jobs -p) 2>/dev/null || true
+    exit 0
+}
+
+# Set up signal trapping for graceful shutdown
+trap cleanup SIGTERM SIGINT SIGQUIT
+
+# Run periodic task using a simple loop instead of watch
+while true; do
+    echo "Running ansible playbook at $(date)"
+
+    # Run with timeout and handle failure gracefully
+    if timeout ${TIMEOUT_SECONDS} ansible-playbook main.yml; then
+        echo "Playbook completed successfully"
+    else
+        echo "Playbook timed out or failed"
+    fi
+
+    # Sleep for the specified interval
+    sleep ${WATCH_INTERVAL}
 done
