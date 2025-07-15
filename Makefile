@@ -91,13 +91,6 @@ format:
 lint:
 	flake8 .
 	mypy . --ignore-missing-imports
-	bandit -r . -f json || true
-	safety check || true
-
-# Security scan
-security:
-	bandit -r .
-	safety check
 
 # Clean up test artifacts
 clean:

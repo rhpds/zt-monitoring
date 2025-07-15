@@ -8,8 +8,8 @@ import os
 import sqlite3
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from typing import Generator, Any
+from unittest.mock import patch
+from typing import Generator, Dict, Any, List, Union
 
 # Add the parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -83,7 +83,7 @@ def test_db_path() -> Generator[str, None, None]:
 
 
 @pytest.fixture
-def mock_proc_files():
+def mock_proc_files() -> Dict[str, str]:
     """Mock system /proc files for testing"""
     return {
         "stat": "cpu  123456 0 654321 999999 0 0 0 0 0 0\n",
@@ -93,19 +93,26 @@ MemAvailable:    4000000 kB
 Buffers:          500000 kB
 Cached:          1500000 kB
 """,
-        "diskstats": """   8       0 sda 1000 0 0 0 2000 0 0 0 0 0 0 0 0 0 0 0 0
-   8       1 sda1 100 0 0 0 200 0 0 0 0 0 0 0 0 0 0 0 0
-""",
-        "netdev": """Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-    lo:    1000     100    0    0    0     0          0         0     1000     100    0    0    0     0       0          0
-  eth0:   50000     500    0    0    0     0          0         0    25000     250    0    0    0     0       0          0
-""",
+        "diskstats": (
+            "   8       0 sda 1000 0 0 0 2000 0 0 0 0 0 0 0 0 0 0 0 0\n"
+            "   8       1 sda1 100 0 0 0 200 0 0 0 0 0 0 0 0 0 0 0 0\n"
+        ),
+        "netdev": (
+            "Inter-|   Receive                                                "
+            "|  Transmit\n"
+            " face |bytes    packets errs drop fifo frame compressed "
+            "multicast|bytes    packets errs drop fifo colls carrier "
+            "compressed\n"
+            "    lo:    1000     100    0    0    0     0          0         0"
+            "     1000     100    0    0    0     0       0          0\n"
+            "  eth0:   50000     500    0    0    0     0          0         0"
+            "    25000     250    0    0    0     0       0          0\n"
+        ),
     }
 
 
 @pytest.fixture(autouse=True)
-def mock_external_calls(request):
+def mock_external_calls(request: pytest.FixtureRequest) -> Generator[Dict[str, Any], None, None]:
     """Mock external calls by default to prevent side effects"""
 
     # Skip mocking for specific integration tests that need real subprocess
@@ -113,14 +120,19 @@ def mock_external_calls(request):
         hasattr(request, "node")
         and hasattr(request.node, "name")
         and request.node.name
-        in ["test_monitoring_script_execution", "test_performance_metrics"]
+        in [
+            "test_monitoring_script_execution",
+            "test_performance_metrics",
+        ]
     ):
         yield {}
         return
 
-    with patch("requests.get") as mock_get, patch("requests.post") as mock_post, patch(
-        "subprocess.run"
-    ) as mock_subprocess:
+    with (
+        patch("requests.get") as mock_get,
+        patch("requests.post") as mock_post,
+        patch("subprocess.run") as mock_subprocess,
+    ):
 
         # Configure default mock responses
         mock_get.return_value.status_code = 200
@@ -140,7 +152,7 @@ def mock_external_calls(request):
 
 
 @pytest.fixture
-def sample_metrics():
+def sample_metrics() -> Dict[str, List[Dict[str, Union[str, float]]]]:
     """Sample metrics data for testing"""
     return {
         "cpu_usage": [
@@ -156,14 +168,22 @@ def sample_metrics():
             {"host": "test-host-2", "reads": 1500.0, "writes": 2500.0},
         ],
         "network_io": [
-            {"host": "test-host-1", "bytes_sent": 50000.0, "bytes_recv": 25000.0},
-            {"host": "test-host-2", "bytes_sent": 75000.0, "bytes_recv": 35000.0},
+            {
+                "host": "test-host-1",
+                "bytes_sent": 50000.0,
+                "bytes_recv": 25000.0,
+            },
+            {
+                "host": "test-host-2",
+                "bytes_sent": 75000.0,
+                "bytes_recv": 35000.0,
+            },
         ],
     }
 
 
 @pytest.fixture
-def mock_ansible_environment():
+def mock_ansible_environment() -> Generator[Dict[str, str], None, None]:
     """Mock Ansible environment variables"""
     env_vars = {
         "ANSIBLE_HOST_KEY_CHECKING": "False",
@@ -179,7 +199,7 @@ def mock_ansible_environment():
 
 
 @pytest.fixture
-def temp_work_dir():
+def temp_work_dir() -> Generator[str, None, None]:
     """Create a temporary working directory"""
     with tempfile.TemporaryDirectory() as temp_dir:
         original_cwd = os.getcwd()
@@ -189,9 +209,12 @@ def temp_work_dir():
 
 
 @pytest.fixture
-def mock_time():
+def mock_time() -> Generator[Dict[str, Any], None, None]:
     """Mock time-related functions for consistent testing"""
-    with patch("time.time") as mock_time_time, patch("time.sleep") as mock_time_sleep:
+    with (
+        patch("time.time") as mock_time_time,
+        patch("time.sleep") as mock_time_sleep,
+    ):
 
         mock_time_time.return_value = 1234567890.0
         mock_time_sleep.return_value = None

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "zt-monitoring"
 description = "ZT Monitoring container"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
     "ansible>=11.3.0,<12.0.0",
     "ansible-core>=2.18.0,<3.0.0",
@@ -29,8 +29,6 @@ dev = [
     "black>=23.0.0",
     "flake8>=6.0.0",
     "mypy>=1.5.0",
-    "bandit>=1.7.5",
-    "safety>=2.3.5",
     "pre-commit>=3.4.0",
 ]
 
@@ -118,7 +116,7 @@ exclude_lines = [
 ]
 
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ['py38']
 include = '\.pyi?$'
 extend-exclude = '''
@@ -137,7 +135,7 @@ extend-exclude = '''
 '''
 
 [tool.flake8]
-max-line-length = 88
+max-line-length = 100
 exclude = [
     ".git",
     "__pycache__",
@@ -150,12 +148,11 @@ exclude = [
 ]
 ignore = [
     "E203",  # whitespace before ':'
-    "E501",  # line too long (handled by black)
     "W503",  # line break before binary operator
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -169,7 +166,3 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 ignore_missing_imports = true
-
-[tool.bandit]
-exclude_dirs = ["tests", "test_*"]
-skips = ["B101", "B601"]

@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import json
 import time
-import os
 
 # Try to import psutil, but continue without it if not available
 try:
@@ -12,10 +11,10 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 
-def get_cpu_usage():
+def get_cpu_usage() -> float:
     """Get CPU usage percentage"""
     if PSUTIL_AVAILABLE:
-        return psutil.cpu_percent(interval=1)
+        return float(psutil.cpu_percent(interval=1))
     else:
         # Fallback: read from /proc/stat
         try:
@@ -47,11 +46,11 @@ def get_cpu_usage():
             return 0.0
 
 
-def get_memory_usage():
+def get_memory_usage() -> float:
     """Get memory usage - returns available memory as percentage of total"""
     if PSUTIL_AVAILABLE:
         vm = psutil.virtual_memory()
-        return round(vm.available * 100 / vm.total, 2)
+        return round(float(vm.available) * 100 / float(vm.total), 2)
     else:
         # Fallback: read from /proc/meminfo
         try:
@@ -59,9 +58,7 @@ def get_memory_usage():
                 meminfo = {}
                 for line in f:
                     key, value = line.split(":")
-                    meminfo[key.strip()] = (
-                        int(value.split()[0]) * 1024
-                    )  # Convert kB to bytes
+                    meminfo[key.strip()] = int(value.split()[0]) * 1024  # Convert kB to bytes
 
             total = meminfo.get("MemTotal", 0)
             available = meminfo.get("MemAvailable", 0)
@@ -81,7 +78,7 @@ def get_memory_usage():
             return 0.0
 
 
-def get_disk_io():
+def get_disk_io() -> tuple[int, int]:
     """Get disk I/O counters"""
     if PSUTIL_AVAILABLE:
         disk_io = psutil.disk_io_counters(perdisk=False)
@@ -99,11 +96,10 @@ def get_disk_io():
                 for line in f:
                     fields = line.split()
                     if len(fields) >= 14:
-                        # Skip partitions (look for devices like sda, nvme0n1, etc.)
+                        # Skip partitions (look for devices like sda, nvme0n1)
                         device = fields[2]
-                        if not any(
-                            char.isdigit() for char in device[-1:]
-                        ):  # Skip numbered partitions
+                        if not any(char.isdigit() for char in device[-1:]):
+                            # Skip numbered partitions
                             read_count += int(fields[3])  # reads completed
                             write_count += int(fields[7])  # writes completed
 
@@ -112,7 +108,7 @@ def get_disk_io():
             return 0, 0
 
 
-def get_network_io():
+def get_network_io() -> tuple[int, int]:
     """Get network I/O counters"""
     if PSUTIL_AVAILABLE:
         net_io = psutil.net_io_counters(pernic=False)
@@ -145,7 +141,7 @@ def get_network_io():
             return 0, 0
 
 
-def main():
+def main() -> None:
     """Main monitoring function"""
     # Get all metrics
     cpu_usage = get_cpu_usage()

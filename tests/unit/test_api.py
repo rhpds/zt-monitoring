@@ -3,19 +3,20 @@
 
 import pytest
 import aiosqlite
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
+from typing import Any
 from api import app, to_sqlite_interval
 
 
 class TestAPIEndpoints:
     """API endpoint tests"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test client"""
         self.client = TestClient(app)
 
-    def test_root_endpoint_no_database(self):
+    def test_root_endpoint_no_database(self) -> None:
         """Test root endpoint returns 503 when database connection is unavailable"""
         with patch("api._connection_pool", None):
             response = self.client.get("/")
@@ -23,7 +24,7 @@ class TestAPIEndpoints:
             assert "Database connection not available" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_root_endpoint_with_database(self):
+    async def test_root_endpoint_with_database(self) -> None:
         """Test root endpoint with database connection"""
         mock_connection = AsyncMock()
 
@@ -34,15 +35,11 @@ class TestAPIEndpoints:
         mock_network_cursor = AsyncMock()
 
         # Mock memory usage query
-        mock_memory_cursor.__aiter__.return_value = [
-            {"host": "test-host", "avg_memory": 50.0}
-        ]
+        mock_memory_cursor.__aiter__.return_value = [{"host": "test-host", "avg_memory": 50.0}]
         mock_memory_cursor.close = AsyncMock()
 
         # Mock CPU usage query
-        mock_cpu_cursor.__aiter__.return_value = [
-            {"host": "test-host", "avg_cpu": 25.0}
-        ]
+        mock_cpu_cursor.__aiter__.return_value = [{"host": "test-host", "avg_cpu": 25.0}]
         mock_cpu_cursor.close = AsyncMock()
 
         # Mock disk usage query
@@ -58,7 +55,7 @@ class TestAPIEndpoints:
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
-        def execute_side_effect(query, *args):
+        def execute_side_effect(query: str, *args: Any) -> AsyncMock:
             if "memory_usage" in query:
                 return mock_memory_cursor
             elif "cpu_usage" in query:
@@ -78,7 +75,7 @@ class TestAPIEndpoints:
             data = response.json()
             assert isinstance(data, dict)
 
-    def test_limit_endpoint_with_time_limit(self):
+    def test_limit_endpoint_with_time_limit(self) -> None:
         """Test limit endpoint with valid time parameter"""
         mock_connection = AsyncMock()
 
@@ -110,7 +107,7 @@ class TestAPIEndpoints:
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
-        def execute_side_effect(query, *args):
+        def execute_side_effect(query: str, *args: Any) -> AsyncMock:
             if "DISTINCT host" in query:
                 return mock_hosts_cursor
             elif "memory_usage" in query:
@@ -132,7 +129,7 @@ class TestAPIEndpoints:
             data = response.json()
             assert isinstance(data, dict)
 
-    def test_limit_endpoint_database_error(self):
+    def test_limit_endpoint_database_error(self) -> None:
         """Test limit endpoint database error handling"""
         mock_connection = AsyncMock()
         mock_connection.execute.side_effect = aiosqlite.Error("Database error")
@@ -157,7 +154,9 @@ class TestAPIEndpoints:
             ("4w", "-4 weeks"),
         ],
     )
-    def test_to_sqlite_interval_valid_formats(self, time_param, expected_interval):
+    def test_to_sqlite_interval_valid_formats(
+        self, time_param: str, expected_interval: str
+    ) -> None:
         """Test valid time format conversion"""
         result = to_sqlite_interval(time_param)
         assert result == expected_interval
@@ -174,7 +173,7 @@ class TestAPIEndpoints:
             "1h30m",
         ],
     )
-    def test_to_sqlite_interval_invalid_formats(self, invalid_time):
+    def test_to_sqlite_interval_invalid_formats(self, invalid_time: str) -> None:
         """Test invalid time format handling"""
         with pytest.raises(ValueError, match="Invalid time format"):
             to_sqlite_interval(invalid_time)
@@ -188,12 +187,12 @@ class TestAPIEndpoints:
             "1y",
         ],
     )
-    def test_to_sqlite_interval_unsupported_units(self, invalid_unit):
+    def test_to_sqlite_interval_unsupported_units(self, invalid_unit: str) -> None:
         """Test unsupported time units"""
         with pytest.raises(ValueError, match="Unsupported time unit"):
             to_sqlite_interval(invalid_unit)
 
-    def test_limit_endpoint_invalid_time_format(self):
+    def test_limit_endpoint_invalid_time_format(self) -> None:
         """Test limit endpoint with invalid time format"""
         # Mock connection so we get to the time format validation
         mock_connection = AsyncMock()
@@ -202,7 +201,7 @@ class TestAPIEndpoints:
             assert response.status_code == 400
             assert "Invalid time format" in response.json()["detail"]
 
-    def test_limit_endpoint_empty_database(self):
+    def test_limit_endpoint_empty_database(self) -> None:
         """Test limit endpoint with empty database"""
         mock_connection = AsyncMock()
 
@@ -219,12 +218,12 @@ class TestAPIEndpoints:
             data = response.json()
             assert data == {}
 
-    def test_health_endpoint_missing(self):
+    def test_health_endpoint_missing(self) -> None:
         """Test that health endpoint returns 404 as it doesn't exist"""
         response = self.client.get("/health")
         assert response.status_code == 404
 
-    def test_large_time_interval(self):
+    def test_large_time_interval(self) -> None:
         """Test large time interval handling"""
         mock_connection = AsyncMock()
 
@@ -256,7 +255,7 @@ class TestAPIEndpoints:
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
-        def execute_side_effect(query, *args):
+        def execute_side_effect(query: str, *args: Any) -> AsyncMock:
             if "DISTINCT host" in query:
                 return mock_hosts_cursor
             elif "memory_usage" in query:
@@ -278,7 +277,7 @@ class TestAPIEndpoints:
             data = response.json()
             assert isinstance(data, dict)
 
-    def test_concurrent_requests(self):
+    def test_concurrent_requests(self) -> None:
         """Test concurrent request handling"""
         mock_connection = AsyncMock()
 
@@ -310,7 +309,7 @@ class TestAPIEndpoints:
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
-        def execute_side_effect(query, *args):
+        def execute_side_effect(query: str, *args: Any) -> AsyncMock:
             if "DISTINCT host" in query:
                 return mock_hosts_cursor
             elif "memory_usage" in query:
@@ -333,13 +332,13 @@ class TestAPIEndpoints:
             assert response1.status_code == 200
             assert response2.status_code == 200
 
-    def test_cors_headers(self):
+    def test_cors_headers(self) -> None:
         """Test CORS headers (basic test since no CORS middleware is configured)"""
         response = self.client.options("/limit/1h")
         # Should return 405 since OPTIONS is not implemented for this endpoint
         assert response.status_code == 405
 
-    def test_limit_endpoint_database_exception(self):
+    def test_limit_endpoint_database_exception(self) -> None:
         """Test limit endpoint with database exception"""
         mock_connection = AsyncMock()
         mock_connection.execute.side_effect = Exception("Unexpected error")
@@ -358,7 +357,7 @@ class TestAPIEndpoints:
             "/limit/1w",
         ],
     )
-    def test_response_format_consistency(self, endpoint):
+    def test_response_format_consistency(self, endpoint: str) -> None:
         """Test consistent response format across endpoints"""
         mock_connection = AsyncMock()
 
@@ -370,14 +369,10 @@ class TestAPIEndpoints:
         mock_network_cursor = AsyncMock()
 
         # Set up mocks for root endpoint (uses async for)
-        mock_memory_cursor.__aiter__.return_value = [
-            {"host": "test-host", "avg_memory": 50.0}
-        ]
+        mock_memory_cursor.__aiter__.return_value = [{"host": "test-host", "avg_memory": 50.0}]
         mock_memory_cursor.close = AsyncMock()
 
-        mock_cpu_cursor.__aiter__.return_value = [
-            {"host": "test-host", "avg_cpu": 25.0}
-        ]
+        mock_cpu_cursor.__aiter__.return_value = [{"host": "test-host", "avg_cpu": 25.0}]
         mock_cpu_cursor.close = AsyncMock()
 
         mock_disk_cursor.__aiter__.return_value = [
@@ -404,7 +399,7 @@ class TestAPIEndpoints:
         }
 
         # Set up the connection mock to return different cursors for different queries
-        def execute_side_effect(query, *args):
+        def execute_side_effect(query: str, *args: Any) -> AsyncMock:
             if "DISTINCT host" in query:
                 return mock_hosts_cursor
             elif "memory_usage" in query:

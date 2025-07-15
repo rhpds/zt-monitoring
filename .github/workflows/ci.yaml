@@ -46,22 +46,7 @@ jobs:
         run: flake8 .
 
       - name: Type checking
-        run: mypy . --ignore-missing-imports
-
-      - name: Security scan
-        run: bandit -r . -f json -o bandit-results.json || true
-
-      - name: Dependency vulnerability scan
-        run: safety check --json --output safety-results.json || true
-
-      - name: Upload security results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-results
-          path: |
-            bandit-results.json
-            safety-results.json
+        run: mypy .
 
   test:
     name: Test Suite

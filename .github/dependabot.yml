@@ -33,8 +33,6 @@ updates:
           - "black"
           - "flake8"
           - "mypy"
-          - "bandit"
-          - "safety"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

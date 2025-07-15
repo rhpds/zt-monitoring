@@ -3,17 +3,15 @@
 
 import pytest
 import json
-import subprocess
 import tempfile
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 
 class TestIntegration:
     """Integration test suite"""
 
-    def test_monitoring_script_execution(self):
+    def test_monitoring_script_execution(self) -> None:
         """Test that the monitoring script executes and returns valid JSON"""
         # Find the monitoring script
         script_path = Path(__file__).parent.parent.parent / "monitoring.py"
@@ -49,7 +47,7 @@ class TestIntegration:
         # Try to parse the JSON output
         try:
             output_data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             pytest.skip(f"Script output is not valid JSON: {result.stdout}")
 
         # Verify the expected structure
@@ -70,25 +68,19 @@ class TestIntegration:
             assert key in output_data, f"Missing required key: {key}"
 
         # Verify value types and ranges
-        assert isinstance(
-            output_data["cpu_usage"], (int, float)
-        ), "CPU usage should be numeric"
-        assert (
-            0 <= output_data["cpu_usage"] <= 100
-        ), "CPU usage should be between 0 and 100"
+        assert isinstance(output_data["cpu_usage"], (int, float)), "CPU usage should be numeric"
+        assert 0 <= output_data["cpu_usage"] <= 100, "CPU usage should be between 0 and 100"
 
         assert isinstance(
             output_data["memory_usage"], (int, float)
         ), "Memory usage should be numeric"
-        assert (
-            0 <= output_data["memory_usage"] <= 100
-        ), "Memory usage should be between 0 and 100"
+        assert 0 <= output_data["memory_usage"] <= 100, "Memory usage should be between 0 and 100"
 
         assert isinstance(
             output_data["psutil_available"], bool
         ), "psutil_available should be boolean"
 
-    def test_database_schema_creation(self):
+    def test_database_schema_creation(self) -> None:
         """Test database schema creation"""
         # Create a temporary database file
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
@@ -188,7 +180,7 @@ class TestIntegration:
             if os.path.exists(db_path):
                 os.unlink(db_path)
 
-    def test_database_operations(self):
+    def test_database_operations(self) -> None:
         """Test basic database operations"""
         # Create a temporary database
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
@@ -245,7 +237,7 @@ class TestIntegration:
             if os.path.exists(db_path):
                 os.unlink(db_path)
 
-    def test_error_handling_scenarios(self):
+    def test_error_handling_scenarios(self) -> None:
         """Test error handling in various scenarios"""
         # Test with invalid database path
         try:
@@ -276,12 +268,10 @@ class TestIntegration:
             if os.path.exists(db_path):
                 os.unlink(db_path)
 
-    def test_ansible_inventory_creation(self):
+    def test_ansible_inventory_creation(self) -> None:
         """Test Ansible inventory file creation"""
         # Create a temporary inventory file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".ini", delete=False
-        ) as temp_inv:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as temp_inv:
             inventory_path = temp_inv.name
 
             # Write a simple inventory
@@ -309,7 +299,7 @@ ansible_user=testuser
             if os.path.exists(inventory_path):
                 os.unlink(inventory_path)
 
-    def test_container_environment_variables(self):
+    def test_container_environment_variables(self) -> None:
         """Test environment variable handling"""
         # Test setting and getting environment variables
         test_var = "TEST_MONITORING_VAR"
@@ -330,7 +320,7 @@ ansible_user=testuser
             if test_var in os.environ:
                 del os.environ[test_var]
 
-    def test_performance_metrics(self):
+    def test_performance_metrics(self) -> None:
         """Test that the monitoring script completes within acceptable time limits"""
         # Find the monitoring script
         script_path = Path(__file__).parent.parent.parent / "monitoring.py"
@@ -379,9 +369,7 @@ ansible_user=testuser
             pytest.skip(f"Script output is not valid JSON: {result.stdout}")
 
         # Verify performance constraints
-        assert (
-            execution_time < 5.0
-        ), f"Script took too long to execute: {execution_time:.2f}s"
+        assert execution_time < 5.0, f"Script took too long to execute: {execution_time:.2f}s"
 
         # Verify that all expected metrics are present
         expected_keys = [
@@ -396,6 +384,4 @@ ansible_user=testuser
 
         for key in expected_keys:
             assert key in output_data, f"Missing performance metric: {key}"
-            assert isinstance(
-                output_data[key], (int, float, bool)
-            ), f"Invalid type for {key}"
+            assert isinstance(output_data[key], (int, float, bool)), f"Invalid type for {key}"

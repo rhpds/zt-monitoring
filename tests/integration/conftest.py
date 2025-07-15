@@ -6,19 +6,19 @@ import pytest
 import tempfile
 import os
 import sqlite3
-import subprocess
 import time
 from pathlib import Path
 import sys
 from unittest.mock import patch, MagicMock
+from typing import Generator, Dict, Any, List, Union
 
 # Add the parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 @pytest.fixture(scope="module")
-def integration_db():
-    """Create a test database with schema and sample data for integration tests"""
+def integration_db() -> Generator[str, None, None]:
+    """Create a test database with schema and sample data for tests"""
     db_fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(db_fd)
 
@@ -82,7 +82,8 @@ def integration_db():
 
     for host, cpu, memory, disk_r, disk_w, net_s, net_r in test_data:
         cursor.execute(
-            "INSERT INTO cpu_usage (host, cpu_usage) VALUES (?, ?)", (host, cpu)
+            "INSERT INTO cpu_usage (host, cpu_usage) VALUES (?, ?)",
+            (host, cpu),
         )
         cursor.execute(
             "INSERT INTO memory_usage (host, memory_usage) VALUES (?, ?)",
@@ -108,7 +109,7 @@ def integration_db():
 
 
 @pytest.fixture
-def mock_ansible_runner():
+def mock_ansible_runner() -> Generator[MagicMock, None, None]:
     """Mock ansible runner for testing"""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
@@ -118,11 +119,15 @@ def mock_ansible_runner():
 
 
 @pytest.fixture
-def mock_monitoring_script():
+def mock_monitoring_script() -> Generator[MagicMock, None, None]:
     """Mock monitoring script execution"""
 
-    def mock_monitoring_output():
-        return '{"cpu_usage": 45.5, "memory_usage": 67.2, "disk_io": {"reads": 1000, "writes": 2000}, "network_io": {"bytes_sent": 50000, "bytes_recv": 25000}}'
+    def mock_monitoring_output() -> str:
+        return (
+            '{"cpu_usage": 45.5, "memory_usage": 67.2, '
+            '"disk_io": {"reads": 1000, "writes": 2000}, '
+            '"network_io": {"bytes_sent": 50000, "bytes_recv": 25000}}'
+        )
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
@@ -131,7 +136,7 @@ def mock_monitoring_script():
 
 
 @pytest.fixture
-def temp_inventory_file():
+def temp_inventory_file() -> Generator[str, None, None]:
     """Create a temporary Ansible inventory file"""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
         f.write(
@@ -157,7 +162,7 @@ ansible_host_key_checking=False
 
 
 @pytest.fixture
-def mock_container_environment():
+def mock_container_environment() -> Generator[Dict[str, str], None, None]:
     """Mock container environment variables"""
     env_vars = {
         "DB_PATH": "/tmp/test_metrics.db",
@@ -172,7 +177,7 @@ def mock_container_environment():
 
 
 @pytest.fixture
-def api_server_process():
+def api_server_process() -> Generator[MagicMock, None, None]:
     """Start API server process for integration testing"""
     # This would start the actual API server in a subprocess
     # For now, we'll mock it since we don't want to start real servers in tests
@@ -185,7 +190,7 @@ def api_server_process():
 
 
 @pytest.fixture
-def performance_timer():
+def performance_timer() -> Generator[None, None, None]:
     """Time test execution for performance testing"""
     start_time = time.time()
     yield
