@@ -1,18 +1,52 @@
-from fastapi import FastAPI
-import sqlite3
+from fastapi import FastAPI, HTTPException
+import aiosqlite
+from contextlib import asynccontextmanager
+import logging
+from typing import Optional, Dict, Any, AsyncGenerator
 
-app = FastAPI()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global connection pool
+_connection_pool: Optional[aiosqlite.Connection] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup
+    global _connection_pool
+    logger.info("Initializing database connection pool")
+    _connection_pool = await aiosqlite.connect("/tmp/metrics.db")
+    # Enable row factory for better data access
+    if _connection_pool is not None:
+        _connection_pool.row_factory = aiosqlite.Row
+    yield
+    # Shutdown
+    if _connection_pool:
+        logger.info("Closing database connection pool")
+        await _connection_pool.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 def to_sqlite_interval(shorthand: str) -> str:
-    unit_map = {
-        's': 'seconds',
-        'm': 'minutes',
-        'h': 'hours',
-        'd': 'days',
-        'w': 'weeks'
+    unit_map: Dict[str, str] = {
+        "s": "seconds",
+        "m": "minutes",
+        "h": "hours",
+        "d": "days",
+        "w": "weeks",
     }
 
-    num = int(shorthand[:-1])
+    if not shorthand or len(shorthand) < 2:
+        raise ValueError("Invalid time format")
+    try:
+        num = int(shorthand[:-1])
+    except ValueError:
+        raise ValueError("Invalid time format")
+
     unit = shorthand[-1]
 
     if unit not in unit_map:
@@ -20,54 +54,188 @@ def to_sqlite_interval(shorthand: str) -> str:
 
     return f"-{num} {unit_map[unit]}"
 
+
 @app.get("/")
-async def root():
-    stats = {}
-    con = sqlite3.connect("/tmp/metrics.db")
-    cur = con.cursor()
-    res = cur.execute("select host, avg(memory_usage) from memory_usage group by host")
-    for host, value in res.fetchall():
-        if host not in stats:
-            stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-        stats[host]["memory"] = value
-    res = cur.execute("select host, avg(cpu_usage) from cpu_usage group by host")
-    for host, value in res.fetchall():
-        stats[host]["cpu"] = value
-    res = cur.execute("select host, avg(read), avg(write) from disk_usage group by host")
-    for host, value_read, value_write in res.fetchall():
-        print(host)
-        stats[host]["disk_read"] = value_read
-        stats[host]["disk_write"] = value_write
-    res = cur.execute("select host, avg(received), avg(sent) from network_usage group by host")
-    for host, value_rcv, value_sent in res.fetchall():
-        stats[host]["network_read"] = value_rcv
-        stats[host]["network_write"] = value_sent
+async def root() -> Dict[str, Any]:
+    """Get aggregate statistics for all hosts"""
+    if _connection_pool is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
+
+    stats: Dict[str, Any] = {}
+    try:
+        # Memory usage
+        cursor = await _connection_pool.execute(
+            "SELECT host, avg(memory_usage) as avg_memory " "FROM memory_usage GROUP BY host"
+        )
+        async for row in cursor:
+            host = row["host"]
+            if host not in stats:
+                stats[host] = {
+                    "memory": 0,
+                    "cpu": 0,
+                    "disk_read": 0,
+                    "disk_write": 0,
+                    "network_read": 0,
+                    "network_write": 0,
+                }
+            stats[host]["memory"] = row["avg_memory"] if row["avg_memory"] is not None else 0
+        await cursor.close()
+
+        # CPU usage
+        cursor = await _connection_pool.execute(
+            "SELECT host, avg(cpu_usage) as avg_cpu " "FROM cpu_usage GROUP BY host"
+        )
+        async for row in cursor:
+            host = row["host"]
+            if host not in stats:
+                stats[host] = {
+                    "memory": 0,
+                    "cpu": 0,
+                    "disk_read": 0,
+                    "disk_write": 0,
+                    "network_read": 0,
+                    "network_write": 0,
+                }
+            stats[host]["cpu"] = row["avg_cpu"] if row["avg_cpu"] is not None else 0
+        await cursor.close()
+
+        # Disk usage
+        cursor = await _connection_pool.execute(
+            "SELECT host, avg(read) as avg_read, avg(write) as avg_write "
+            "FROM disk_usage GROUP BY host"
+        )
+        async for row in cursor:
+            host = row["host"]
+            if host not in stats:
+                stats[host] = {
+                    "memory": 0,
+                    "cpu": 0,
+                    "disk_read": 0,
+                    "disk_write": 0,
+                    "network_read": 0,
+                    "network_write": 0,
+                }
+            stats[host]["disk_read"] = row["avg_read"] if row["avg_read"] is not None else 0
+            stats[host]["disk_write"] = row["avg_write"] if row["avg_write"] is not None else 0
+        await cursor.close()
+
+        # Network usage
+        cursor = await _connection_pool.execute(
+            "SELECT host, avg(received) as avg_received, "
+            "avg(sent) as avg_sent FROM network_usage GROUP BY host"
+        )
+        async for row in cursor:
+            host = row["host"]
+            if host not in stats:
+                stats[host] = {
+                    "memory": 0,
+                    "cpu": 0,
+                    "disk_read": 0,
+                    "disk_write": 0,
+                    "network_read": 0,
+                    "network_write": 0,
+                }
+            stats[host]["network_read"] = (
+                row["avg_received"] if row["avg_received"] is not None else 0
+            )
+            stats[host]["network_write"] = row["avg_sent"] if row["avg_sent"] is not None else 0
+        await cursor.close()
+
+    except aiosqlite.Error as e:
+        logger.error(f"Database error in root endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except Exception as e:
+        logger.error(f"Unexpected error in root endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
     return stats
 
+
 @app.get("/limit/{limit}")
-async def filter(limit: str):
-    stats = {}
-    con = sqlite3.connect("/tmp/metrics.db")
-    cur = con.cursor()
-    res = cur.execute("select host from memory_usage group by host;")
-    hosts = res.fetchall()
-    limit_time = to_sqlite_interval(limit)
-    for host_tuple in hosts:
-        host = host_tuple[0]
-        if host not in stats:
-            stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-        res = cur.execute("select avg(memory_usage) from memory_usage where host='" + host + "' and timestamp >= datetime('now', 'localtime','" + limit_time + "')")
+async def filter_by_time(limit: str) -> Dict[str, Any]:
+    """Get statistics filtered by time limit (e.g., '1h', '30m', '7d')"""
+    if _connection_pool is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
 
-        stats[host]["memory"] = res.fetchone()[0]
-        res = cur.execute("select avg(cpu_usage) from cpu_usage where host='" + host + "' and timestamp >= datetime('now', 'localtime','" + limit_time + "')")
-        stats[host]["cpu"] = res.fetchone()[0]
-        res = cur.execute("select avg(read), avg(write) from disk_usage where host='" + host + "' and timestamp >= datetime('now', 'localtime','" + limit_time + "')")
-        disk_data = res.fetchone()
-        stats[host]["disk_read"] = disk_data[0]
-        stats[host]["disk_write"] = disk_data[1]
-        res = cur.execute("select avg(received), avg(sent) from network_usage where host='" + host + "' and timestamp >= datetime('now', 'localtime','" + limit_time + "')")
+    try:
+        limit_time = to_sqlite_interval(limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid time format: {str(e)}")
 
-        network_data = res.fetchone()
-        stats[host]["network_read"] = network_data[0]
-        stats[host]["network_write"] = network_data[1]
+    stats: Dict[str, Any] = {}
+    try:
+        # Get all hosts first
+        cursor = await _connection_pool.execute("SELECT DISTINCT host FROM memory_usage")
+        hosts = [row["host"] async for row in cursor]
+        await cursor.close()
+
+        # Process each host
+        for host in hosts:
+            if host not in stats:
+                stats[host] = {
+                    "memory": 0,
+                    "cpu": 0,
+                    "disk_read": 0,
+                    "disk_write": 0,
+                    "network_read": 0,
+                    "network_write": 0,
+                }
+
+            # Memory usage
+            cursor = await _connection_pool.execute(
+                "SELECT avg(memory_usage) as avg_memory FROM memory_usage "
+                "WHERE host=? AND timestamp>=datetime('now', 'localtime', ?)",
+                (host, limit_time),
+            )
+            row = await cursor.fetchone()
+            stats[host]["memory"] = (
+                row["avg_memory"] if row and row["avg_memory"] is not None else 0
+            )
+            await cursor.close()
+
+            # CPU usage
+            cursor = await _connection_pool.execute(
+                "SELECT avg(cpu_usage) as avg_cpu FROM cpu_usage "
+                "WHERE host=? AND timestamp>=datetime('now', 'localtime', ?)",
+                (host, limit_time),
+            )
+            row = await cursor.fetchone()
+            stats[host]["cpu"] = row["avg_cpu"] if row and row["avg_cpu"] is not None else 0
+            await cursor.close()
+
+            # Disk usage
+            cursor = await _connection_pool.execute(
+                "SELECT avg(read) as avg_read, avg(write) as avg_write "
+                "FROM disk_usage WHERE host=? AND "
+                "timestamp >= datetime('now', 'localtime', ?)",
+                (host, limit_time),
+            )
+            row = await cursor.fetchone()
+            if row:
+                stats[host]["disk_read"] = row["avg_read"] if row["avg_read"] is not None else 0
+                stats[host]["disk_write"] = row["avg_write"] if row["avg_write"] is not None else 0
+            await cursor.close()
+
+            # Network usage
+            cursor = await _connection_pool.execute(
+                "SELECT avg(received) as avg_received, avg(sent) as avg_sent "
+                "FROM network_usage WHERE host=? AND "
+                "timestamp >= datetime('now', 'localtime', ?)",
+                (host, limit_time),
+            )
+            row = await cursor.fetchone()
+            if row:
+                stats[host]["network_read"] = (
+                    row["avg_received"] if row["avg_received"] is not None else 0
+                )
+                stats[host]["network_write"] = row["avg_sent"] if row["avg_sent"] is not None else 0
+            await cursor.close()
+
+    except aiosqlite.Error as e:
+        logger.error(f"Database error in filter endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except Exception as e:
+        logger.error(f"Unexpected error in filter endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
     return stats

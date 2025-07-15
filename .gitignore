@@ -1,0 +1,14 @@
+__pycache__/
+.pytest_cache/
+venv/
+test-report.html
+test-results.xml
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.coverage.*
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
