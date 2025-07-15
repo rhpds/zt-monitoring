@@ -59,39 +59,43 @@ async def root():
 
     stats = {}
     try:
-        # Use the global connection pool instead of creating new connections
-        async with _connection_pool.execute("SELECT host, avg(memory_usage) as avg_memory FROM memory_usage GROUP BY host") as cursor:
-            async for row in cursor:
-                host = row['host']
-                if host not in stats:
-                    stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-                stats[host]["memory"] = row['avg_memory'] if row['avg_memory'] is not None else 0
+        # Memory usage
+        cursor = await _connection_pool.execute("SELECT host, avg(memory_usage) as avg_memory FROM memory_usage GROUP BY host")
+        async for row in cursor:
+            host = row['host']
+            if host not in stats:
+                stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
+            stats[host]["memory"] = row['avg_memory'] if row['avg_memory'] is not None else 0
+        await cursor.close()
 
         # CPU usage
-        async with _connection_pool.execute("SELECT host, avg(cpu_usage) as avg_cpu FROM cpu_usage GROUP BY host") as cursor:
-            async for row in cursor:
-                host = row['host']
-                if host not in stats:
-                    stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-                stats[host]["cpu"] = row['avg_cpu'] if row['avg_cpu'] is not None else 0
+        cursor = await _connection_pool.execute("SELECT host, avg(cpu_usage) as avg_cpu FROM cpu_usage GROUP BY host")
+        async for row in cursor:
+            host = row['host']
+            if host not in stats:
+                stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
+            stats[host]["cpu"] = row['avg_cpu'] if row['avg_cpu'] is not None else 0
+        await cursor.close()
 
         # Disk usage
-        async with _connection_pool.execute("SELECT host, avg(read) as avg_read, avg(write) as avg_write FROM disk_usage GROUP BY host") as cursor:
-            async for row in cursor:
-                host = row['host']
-                if host not in stats:
-                    stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-                stats[host]["disk_read"] = row['avg_read'] if row['avg_read'] is not None else 0
-                stats[host]["disk_write"] = row['avg_write'] if row['avg_write'] is not None else 0
+        cursor = await _connection_pool.execute("SELECT host, avg(read) as avg_read, avg(write) as avg_write FROM disk_usage GROUP BY host")
+        async for row in cursor:
+            host = row['host']
+            if host not in stats:
+                stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
+            stats[host]["disk_read"] = row['avg_read'] if row['avg_read'] is not None else 0
+            stats[host]["disk_write"] = row['avg_write'] if row['avg_write'] is not None else 0
+        await cursor.close()
 
         # Network usage
-        async with _connection_pool.execute("SELECT host, avg(received) as avg_received, avg(sent) as avg_sent FROM network_usage GROUP BY host") as cursor:
-            async for row in cursor:
-                host = row['host']
-                if host not in stats:
-                    stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
-                stats[host]["network_read"] = row['avg_received'] if row['avg_received'] is not None else 0
-                stats[host]["network_write"] = row['avg_sent'] if row['avg_sent'] is not None else 0
+        cursor = await _connection_pool.execute("SELECT host, avg(received) as avg_received, avg(sent) as avg_sent FROM network_usage GROUP BY host")
+        async for row in cursor:
+            host = row['host']
+            if host not in stats:
+                stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
+            stats[host]["network_read"] = row['avg_received'] if row['avg_received'] is not None else 0
+            stats[host]["network_write"] = row['avg_sent'] if row['avg_sent'] is not None else 0
+        await cursor.close()
 
     except aiosqlite.Error as e:
         logger.error(f"Database error in root endpoint: {e}")
@@ -116,8 +120,9 @@ async def filter_by_time(limit: str):
     stats = {}
     try:
         # Get all hosts first
-        async with _connection_pool.execute("SELECT DISTINCT host FROM memory_usage") as cursor:
-            hosts = [row['host'] async for row in cursor]
+        cursor = await _connection_pool.execute("SELECT DISTINCT host FROM memory_usage")
+        hosts = [row['host'] async for row in cursor]
+        await cursor.close()
 
         # Process each host
         for host in hosts:
@@ -125,40 +130,44 @@ async def filter_by_time(limit: str):
                 stats[host] = {"memory": 0, "cpu": 0, "disk_read": 0, "disk_write": 0, "network_read": 0, "network_write": 0}
 
             # Memory usage
-            async with _connection_pool.execute(
+            cursor = await _connection_pool.execute(
                 "SELECT avg(memory_usage) as avg_memory FROM memory_usage WHERE host=? AND timestamp >= datetime('now', 'localtime', ?)",
                 (host, limit_time)
-            ) as cursor:
-                row = await cursor.fetchone()
-                stats[host]["memory"] = row['avg_memory'] if row and row['avg_memory'] is not None else 0
+            )
+            row = await cursor.fetchone()
+            stats[host]["memory"] = row['avg_memory'] if row and row['avg_memory'] is not None else 0
+            await cursor.close()
 
             # CPU usage
-            async with _connection_pool.execute(
+            cursor = await _connection_pool.execute(
                 "SELECT avg(cpu_usage) as avg_cpu FROM cpu_usage WHERE host=? AND timestamp >= datetime('now', 'localtime', ?)",
                 (host, limit_time)
-            ) as cursor:
-                row = await cursor.fetchone()
-                stats[host]["cpu"] = row['avg_cpu'] if row and row['avg_cpu'] is not None else 0
+            )
+            row = await cursor.fetchone()
+            stats[host]["cpu"] = row['avg_cpu'] if row and row['avg_cpu'] is not None else 0
+            await cursor.close()
 
             # Disk usage
-            async with _connection_pool.execute(
+            cursor = await _connection_pool.execute(
                 "SELECT avg(read) as avg_read, avg(write) as avg_write FROM disk_usage WHERE host=? AND timestamp >= datetime('now', 'localtime', ?)",
                 (host, limit_time)
-            ) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    stats[host]["disk_read"] = row['avg_read'] if row['avg_read'] is not None else 0
-                    stats[host]["disk_write"] = row['avg_write'] if row['avg_write'] is not None else 0
+            )
+            row = await cursor.fetchone()
+            if row:
+                stats[host]["disk_read"] = row['avg_read'] if row['avg_read'] is not None else 0
+                stats[host]["disk_write"] = row['avg_write'] if row['avg_write'] is not None else 0
+            await cursor.close()
 
             # Network usage
-            async with _connection_pool.execute(
+            cursor = await _connection_pool.execute(
                 "SELECT avg(received) as avg_received, avg(sent) as avg_sent FROM network_usage WHERE host=? AND timestamp >= datetime('now', 'localtime', ?)",
                 (host, limit_time)
-            ) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    stats[host]["network_read"] = row['avg_received'] if row['avg_received'] is not None else 0
-                    stats[host]["network_write"] = row['avg_sent'] if row['avg_sent'] is not None else 0
+            )
+            row = await cursor.fetchone()
+            if row:
+                stats[host]["network_read"] = row['avg_received'] if row['avg_received'] is not None else 0
+                stats[host]["network_write"] = row['avg_sent'] if row['avg_sent'] is not None else 0
+            await cursor.close()
 
     except aiosqlite.Error as e:
         logger.error(f"Database error in filter endpoint: {e}")

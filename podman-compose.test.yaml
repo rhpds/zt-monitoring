@@ -1,0 +1,58 @@
+version: "3.0"
+
+name: zerotouch-test
+
+services:
+  monitoring:
+    build: .
+    volumes:
+      - ./:/app:z
+    environment:
+      - BASTION_HOST=host
+      - BASTION_PORT=2222
+      - BASTION_USER=lab-user
+      - BASTION_PASSWORD=password
+      - OTHER_HOSTS=host
+    ports:
+      - "9999:9999"
+    depends_on:
+      - host
+    command: >
+      bash -c "
+        echo 'Starting monitoring services...' &&
+        /entrypoint.sh
+      "
+
+  host:
+    build: ./.compose/openssh
+    container_name: host
+    hostname: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Australia/Sydney
+      - PASSWORD_ACCESS=true
+      - USER_NAME=lab-user
+      - USER_PASSWORD=password
+    restart: unless-stopped
+
+  test-runner:
+    build: .
+    volumes:
+      - ./:/app:z
+    environment:
+      - BASTION_HOST=host
+      - BASTION_PORT=2222
+      - BASTION_USER=lab-user
+      - BASTION_PASSWORD=password
+      - OTHER_HOSTS=host
+    depends_on:
+      - monitoring
+      - host
+    command: >
+      bash -c "
+        echo 'Installing test dependencies...' &&
+        pip install --no-cache-dir requests pytest coverage &&
+        echo 'Test runner ready. Keeping container alive...' &&
+        sleep infinity
+      "
