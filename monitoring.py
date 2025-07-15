@@ -6,9 +6,11 @@ import os
 # Try to import psutil, but continue without it if not available
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
+
 
 def get_cpu_usage():
     """Get CPU usage percentage"""
@@ -17,7 +19,7 @@ def get_cpu_usage():
     else:
         # Fallback: read from /proc/stat
         try:
-            with open('/proc/stat', 'r') as f:
+            with open("/proc/stat", "r") as f:
                 line = f.readline()
             cpu_times = [int(x) for x in line.split()[1:]]
             idle_time = cpu_times[3]  # idle time
@@ -26,7 +28,7 @@ def get_cpu_usage():
             # Take a second measurement for calculation
             time.sleep(1)
 
-            with open('/proc/stat', 'r') as f:
+            with open("/proc/stat", "r") as f:
                 line = f.readline()
             cpu_times2 = [int(x) for x in line.split()[1:]]
             idle_time2 = cpu_times2[3]
@@ -44,6 +46,7 @@ def get_cpu_usage():
         except (IOError, ValueError, IndexError):
             return 0.0
 
+
 def get_memory_usage():
     """Get memory usage - returns available memory as percentage of total"""
     if PSUTIL_AVAILABLE:
@@ -52,20 +55,22 @@ def get_memory_usage():
     else:
         # Fallback: read from /proc/meminfo
         try:
-            with open('/proc/meminfo', 'r') as f:
+            with open("/proc/meminfo", "r") as f:
                 meminfo = {}
                 for line in f:
-                    key, value = line.split(':')
-                    meminfo[key.strip()] = int(value.split()[0]) * 1024  # Convert kB to bytes
+                    key, value = line.split(":")
+                    meminfo[key.strip()] = (
+                        int(value.split()[0]) * 1024
+                    )  # Convert kB to bytes
 
-            total = meminfo.get('MemTotal', 0)
-            available = meminfo.get('MemAvailable', 0)
+            total = meminfo.get("MemTotal", 0)
+            available = meminfo.get("MemAvailable", 0)
 
             # If MemAvailable is not available, calculate it
             if available == 0:
-                free = meminfo.get('MemFree', 0)
-                buffers = meminfo.get('Buffers', 0)
-                cached = meminfo.get('Cached', 0)
+                free = meminfo.get("MemFree", 0)
+                buffers = meminfo.get("Buffers", 0)
+                cached = meminfo.get("Cached", 0)
                 available = free + buffers + cached
 
             if total == 0:
@@ -74,6 +79,7 @@ def get_memory_usage():
             return round(available * 100 / total, 2)
         except (IOError, ValueError, KeyError):
             return 0.0
+
 
 def get_disk_io():
     """Get disk I/O counters"""
@@ -89,19 +95,22 @@ def get_disk_io():
             read_count = 0
             write_count = 0
 
-            with open('/proc/diskstats', 'r') as f:
+            with open("/proc/diskstats", "r") as f:
                 for line in f:
                     fields = line.split()
                     if len(fields) >= 14:
                         # Skip partitions (look for devices like sda, nvme0n1, etc.)
                         device = fields[2]
-                        if not any(char.isdigit() for char in device[-1:]):  # Skip numbered partitions
-                            read_count += int(fields[3])   # reads completed
+                        if not any(
+                            char.isdigit() for char in device[-1:]
+                        ):  # Skip numbered partitions
+                            read_count += int(fields[3])  # reads completed
                             write_count += int(fields[7])  # writes completed
 
             return read_count, write_count
         except (IOError, ValueError, IndexError):
             return 0, 0
+
 
 def get_network_io():
     """Get network I/O counters"""
@@ -117,7 +126,7 @@ def get_network_io():
             bytes_recv = 0
             bytes_sent = 0
 
-            with open('/proc/net/dev', 'r') as f:
+            with open("/proc/net/dev", "r") as f:
                 # Skip header lines
                 f.readline()
                 f.readline()
@@ -125,15 +134,16 @@ def get_network_io():
                 for line in f:
                     fields = line.split()
                     if len(fields) >= 17:
-                        interface = fields[0].rstrip(':')
+                        interface = fields[0].rstrip(":")
                         # Skip loopback interface
-                        if interface != 'lo':
-                            bytes_recv += int(fields[1])   # receive bytes
-                            bytes_sent += int(fields[9])   # transmit bytes
+                        if interface != "lo":
+                            bytes_recv += int(fields[1])  # receive bytes
+                            bytes_sent += int(fields[9])  # transmit bytes
 
             return bytes_recv, bytes_sent
         except (IOError, ValueError, IndexError):
             return 0, 0
+
 
 def main():
     """Main monitoring function"""
@@ -145,16 +155,17 @@ def main():
 
     # Prepare monitoring data
     monitoring = {
-        'cpu_usage': cpu_usage,
-        'memory_usage': memory_usage,
-        'disk_usage_read': disk_read,
-        'disk_usage_write': disk_write,
-        'network_usage_received': net_recv,
-        'network_usage_sent': net_sent,
-        'psutil_available': PSUTIL_AVAILABLE
+        "cpu_usage": cpu_usage,
+        "memory_usage": memory_usage,
+        "disk_usage_read": disk_read,
+        "disk_usage_write": disk_write,
+        "network_usage_received": net_recv,
+        "network_usage_sent": net_sent,
+        "psutil_available": PSUTIL_AVAILABLE,
     }
 
     print(json.dumps(monitoring))
+
 
 if __name__ == "__main__":
     main()

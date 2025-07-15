@@ -17,7 +17,7 @@ class TestAPIEndpoints:
 
     def test_root_endpoint_no_database(self):
         """Test root endpoint returns 503 when database connection is unavailable"""
-        with patch('api._connection_pool', None):
+        with patch("api._connection_pool", None):
             response = self.client.get("/")
             assert response.status_code == 503
             assert "Database connection not available" in response.json()["detail"]
@@ -72,7 +72,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.side_effect = execute_side_effect
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/")
             assert response.status_code == 200
             data = response.json()
@@ -103,7 +103,10 @@ class TestAPIEndpoints:
         mock_disk_cursor.fetchone.return_value = {"avg_read": 100.0, "avg_write": 200.0}
         mock_disk_cursor.close = AsyncMock()
 
-        mock_network_cursor.fetchone.return_value = {"avg_received": 1000.0, "avg_sent": 500.0}
+        mock_network_cursor.fetchone.return_value = {
+            "avg_received": 1000.0,
+            "avg_sent": 500.0,
+        }
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
@@ -123,7 +126,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.side_effect = execute_side_effect
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/1h")
             assert response.status_code == 200
             data = response.json()
@@ -134,48 +137,57 @@ class TestAPIEndpoints:
         mock_connection = AsyncMock()
         mock_connection.execute.side_effect = aiosqlite.Error("Database error")
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/1h")
             assert response.status_code == 500
             assert "Database error occurred" in response.json()["detail"]
 
-    @pytest.mark.parametrize("time_param,expected_interval", [
-        ("1s", "-1 seconds"),
-        ("30s", "-30 seconds"),
-        ("1m", "-1 minutes"),
-        ("5m", "-5 minutes"),
-        ("1h", "-1 hours"),
-        ("2h", "-2 hours"),
-        ("1d", "-1 days"),
-        ("7d", "-7 days"),
-        ("1w", "-1 weeks"),
-        ("4w", "-4 weeks"),
-    ])
+    @pytest.mark.parametrize(
+        "time_param,expected_interval",
+        [
+            ("1s", "-1 seconds"),
+            ("30s", "-30 seconds"),
+            ("1m", "-1 minutes"),
+            ("5m", "-5 minutes"),
+            ("1h", "-1 hours"),
+            ("2h", "-2 hours"),
+            ("1d", "-1 days"),
+            ("7d", "-7 days"),
+            ("1w", "-1 weeks"),
+            ("4w", "-4 weeks"),
+        ],
+    )
     def test_to_sqlite_interval_valid_formats(self, time_param, expected_interval):
         """Test valid time format conversion"""
         result = to_sqlite_interval(time_param)
         assert result == expected_interval
 
-    @pytest.mark.parametrize("invalid_time", [
-        "invalid",
-        "abc",
-        "1hour",
-        "1 hour",
-        "",
-        "1.5h",
-        "1h30m",
-    ])
+    @pytest.mark.parametrize(
+        "invalid_time",
+        [
+            "invalid",
+            "abc",
+            "1hour",
+            "1 hour",
+            "",
+            "1.5h",
+            "1h30m",
+        ],
+    )
     def test_to_sqlite_interval_invalid_formats(self, invalid_time):
         """Test invalid time format handling"""
         with pytest.raises(ValueError, match="Invalid time format"):
             to_sqlite_interval(invalid_time)
 
-    @pytest.mark.parametrize("invalid_unit", [
-        "1x",
-        "1M",
-        "3M",
-        "1y",
-    ])
+    @pytest.mark.parametrize(
+        "invalid_unit",
+        [
+            "1x",
+            "1M",
+            "3M",
+            "1y",
+        ],
+    )
     def test_to_sqlite_interval_unsupported_units(self, invalid_unit):
         """Test unsupported time units"""
         with pytest.raises(ValueError, match="Unsupported time unit"):
@@ -185,7 +197,7 @@ class TestAPIEndpoints:
         """Test limit endpoint with invalid time format"""
         # Mock connection so we get to the time format validation
         mock_connection = AsyncMock()
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/invalid")
             assert response.status_code == 400
             assert "Invalid time format" in response.json()["detail"]
@@ -201,7 +213,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.return_value = mock_hosts_cursor
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/1h")
             assert response.status_code == 200
             data = response.json()
@@ -237,7 +249,10 @@ class TestAPIEndpoints:
         mock_disk_cursor.fetchone.return_value = {"avg_read": 100.0, "avg_write": 200.0}
         mock_disk_cursor.close = AsyncMock()
 
-        mock_network_cursor.fetchone.return_value = {"avg_received": 1000.0, "avg_sent": 500.0}
+        mock_network_cursor.fetchone.return_value = {
+            "avg_received": 1000.0,
+            "avg_sent": 500.0,
+        }
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
@@ -257,7 +272,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.side_effect = execute_side_effect
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/4w")
             assert response.status_code == 200
             data = response.json()
@@ -288,7 +303,10 @@ class TestAPIEndpoints:
         mock_disk_cursor.fetchone.return_value = {"avg_read": 100.0, "avg_write": 200.0}
         mock_disk_cursor.close = AsyncMock()
 
-        mock_network_cursor.fetchone.return_value = {"avg_received": 1000.0, "avg_sent": 500.0}
+        mock_network_cursor.fetchone.return_value = {
+            "avg_received": 1000.0,
+            "avg_sent": 500.0,
+        }
         mock_network_cursor.close = AsyncMock()
 
         # Set up the connection mock to return different cursors for different queries
@@ -308,7 +326,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.side_effect = execute_side_effect
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response1 = self.client.get("/limit/1h")
             response2 = self.client.get("/limit/1d")
 
@@ -326,17 +344,20 @@ class TestAPIEndpoints:
         mock_connection = AsyncMock()
         mock_connection.execute.side_effect = Exception("Unexpected error")
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get("/limit/1h")
             assert response.status_code == 500
             assert "Internal server error" in response.json()["detail"]
 
-    @pytest.mark.parametrize("endpoint", [
-        "/",
-        "/limit/1h",
-        "/limit/1d",
-        "/limit/1w",
-    ])
+    @pytest.mark.parametrize(
+        "endpoint",
+        [
+            "/",
+            "/limit/1h",
+            "/limit/1d",
+            "/limit/1w",
+        ],
+    )
     def test_response_format_consistency(self, endpoint):
         """Test consistent response format across endpoints"""
         mock_connection = AsyncMock()
@@ -377,7 +398,10 @@ class TestAPIEndpoints:
         mock_memory_cursor.fetchone.return_value = {"avg_memory": 50.0}
         mock_cpu_cursor.fetchone.return_value = {"avg_cpu": 25.0}
         mock_disk_cursor.fetchone.return_value = {"avg_read": 100.0, "avg_write": 200.0}
-        mock_network_cursor.fetchone.return_value = {"avg_received": 1000.0, "avg_sent": 500.0}
+        mock_network_cursor.fetchone.return_value = {
+            "avg_received": 1000.0,
+            "avg_sent": 500.0,
+        }
 
         # Set up the connection mock to return different cursors for different queries
         def execute_side_effect(query, *args):
@@ -396,7 +420,7 @@ class TestAPIEndpoints:
 
         mock_connection.execute.side_effect = execute_side_effect
 
-        with patch('api._connection_pool', mock_connection):
+        with patch("api._connection_pool", mock_connection):
             response = self.client.get(endpoint)
             assert response.status_code == 200
             data = response.json()

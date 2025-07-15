@@ -30,10 +30,7 @@ class TestIntegration:
         try:
             # Call subprocess.run directly
             result = subprocess.run(
-                ["python3", "monitoring.py"],
-                capture_output=True,
-                text=True,
-                timeout=10
+                ["python3", "monitoring.py"], capture_output=True, text=True, timeout=10
             )
         except Exception as e:
             # If subprocess fails, skip this test with a message
@@ -60,26 +57,41 @@ class TestIntegration:
 
         # Check for required keys
         required_keys = [
-            'cpu_usage', 'memory_usage', 'disk_usage_read', 'disk_usage_write',
-            'network_usage_received', 'network_usage_sent', 'psutil_available'
+            "cpu_usage",
+            "memory_usage",
+            "disk_usage_read",
+            "disk_usage_write",
+            "network_usage_received",
+            "network_usage_sent",
+            "psutil_available",
         ]
 
         for key in required_keys:
             assert key in output_data, f"Missing required key: {key}"
 
         # Verify value types and ranges
-        assert isinstance(output_data['cpu_usage'], (int, float)), "CPU usage should be numeric"
-        assert 0 <= output_data['cpu_usage'] <= 100, "CPU usage should be between 0 and 100"
+        assert isinstance(
+            output_data["cpu_usage"], (int, float)
+        ), "CPU usage should be numeric"
+        assert (
+            0 <= output_data["cpu_usage"] <= 100
+        ), "CPU usage should be between 0 and 100"
 
-        assert isinstance(output_data['memory_usage'], (int, float)), "Memory usage should be numeric"
-        assert 0 <= output_data['memory_usage'] <= 100, "Memory usage should be between 0 and 100"
+        assert isinstance(
+            output_data["memory_usage"], (int, float)
+        ), "Memory usage should be numeric"
+        assert (
+            0 <= output_data["memory_usage"] <= 100
+        ), "Memory usage should be between 0 and 100"
 
-        assert isinstance(output_data['psutil_available'], bool), "psutil_available should be boolean"
+        assert isinstance(
+            output_data["psutil_available"], bool
+        ), "psutil_available should be boolean"
 
     def test_database_schema_creation(self):
         """Test database schema creation"""
         # Create a temporary database file
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as temp_db:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
             db_path = temp_db.name
 
         try:
@@ -90,25 +102,30 @@ class TestIntegration:
             cursor = conn.cursor()
 
             # Create test tables
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS cpu_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT NOT NULL,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     cpu_usage REAL NOT NULL
                 )
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS memory_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT NOT NULL,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     memory_usage REAL NOT NULL
                 )
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS disk_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT NOT NULL,
@@ -116,9 +133,11 @@ class TestIntegration:
                     read INTEGER NOT NULL,
                     write INTEGER NOT NULL
                 )
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS network_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT NOT NULL,
@@ -126,13 +145,26 @@ class TestIntegration:
                     received INTEGER NOT NULL,
                     sent INTEGER NOT NULL
                 )
-            """)
+            """
+            )
 
             # Test inserting data
-            cursor.execute("INSERT INTO cpu_usage (host, cpu_usage) VALUES (?, ?)", ("test-host", 25.5))
-            cursor.execute("INSERT INTO memory_usage (host, memory_usage) VALUES (?, ?)", ("test-host", 60.2))
-            cursor.execute("INSERT INTO disk_usage (host, read, write) VALUES (?, ?, ?)", ("test-host", 1000, 2000))
-            cursor.execute("INSERT INTO network_usage (host, received, sent) VALUES (?, ?, ?)", ("test-host", 5000, 3000))
+            cursor.execute(
+                "INSERT INTO cpu_usage (host, cpu_usage) VALUES (?, ?)",
+                ("test-host", 25.5),
+            )
+            cursor.execute(
+                "INSERT INTO memory_usage (host, memory_usage) VALUES (?, ?)",
+                ("test-host", 60.2),
+            )
+            cursor.execute(
+                "INSERT INTO disk_usage (host, read, write) VALUES (?, ?, ?)",
+                ("test-host", 1000, 2000),
+            )
+            cursor.execute(
+                "INSERT INTO network_usage (host, received, sent) VALUES (?, ?, ?)",
+                ("test-host", 5000, 3000),
+            )
 
             conn.commit()
 
@@ -159,7 +191,7 @@ class TestIntegration:
     def test_database_operations(self):
         """Test basic database operations"""
         # Create a temporary database
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as temp_db:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
             db_path = temp_db.name
 
         try:
@@ -169,14 +201,16 @@ class TestIntegration:
             cursor = conn.cursor()
 
             # Create a simple test table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE test_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT NOT NULL,
                     value REAL NOT NULL,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Insert test data
             test_data = [
@@ -186,7 +220,10 @@ class TestIntegration:
             ]
 
             for host, value in test_data:
-                cursor.execute("INSERT INTO test_metrics (host, value) VALUES (?, ?)", (host, value))
+                cursor.execute(
+                    "INSERT INTO test_metrics (host, value) VALUES (?, ?)",
+                    (host, value),
+                )
 
             conn.commit()
 
@@ -213,6 +250,7 @@ class TestIntegration:
         # Test with invalid database path
         try:
             import sqlite3
+
             conn = sqlite3.connect("/nonexistent/path/test.db")
             conn.close()
             pytest.fail("Should have raised an exception for invalid path")
@@ -220,11 +258,12 @@ class TestIntegration:
             pass  # Expected
 
         # Test with malformed SQL
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as temp_db:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
             db_path = temp_db.name
 
         try:
             import sqlite3
+
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
 
@@ -240,26 +279,30 @@ class TestIntegration:
     def test_ansible_inventory_creation(self):
         """Test Ansible inventory file creation"""
         # Create a temporary inventory file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.ini', delete=False) as temp_inv:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".ini", delete=False
+        ) as temp_inv:
             inventory_path = temp_inv.name
 
             # Write a simple inventory
-            temp_inv.write("""[monitoring]
+            temp_inv.write(
+                """[monitoring]
 localhost ansible_connection=local
 
 [monitoring:vars]
 ansible_user=testuser
-""")
+"""
+            )
 
         try:
             # Test that the inventory file is readable
-            with open(inventory_path, 'r') as f:
+            with open(inventory_path, "r") as f:
                 content = f.read()
 
-            assert '[monitoring]' in content
-            assert 'localhost' in content
-            assert 'ansible_connection=local' in content
-            assert 'ansible_user=testuser' in content
+            assert "[monitoring]" in content
+            assert "localhost" in content
+            assert "ansible_connection=local" in content
+            assert "ansible_user=testuser" in content
 
         finally:
             # Clean up
@@ -299,6 +342,7 @@ ansible_user=testuser
         os.chdir(script_dir)
 
         import time
+
         start_time = time.time()
 
         # Import subprocess directly - this should work in forked process
@@ -310,7 +354,7 @@ ansible_user=testuser
                 ["python3", "monitoring.py"],
                 capture_output=True,
                 text=True,
-                timeout=5  # Should complete within 5 seconds
+                timeout=5,  # Should complete within 5 seconds
             )
         except Exception as e:
             # If subprocess fails, skip this test with a message
@@ -335,14 +379,23 @@ ansible_user=testuser
             pytest.skip(f"Script output is not valid JSON: {result.stdout}")
 
         # Verify performance constraints
-        assert execution_time < 5.0, f"Script took too long to execute: {execution_time:.2f}s"
+        assert (
+            execution_time < 5.0
+        ), f"Script took too long to execute: {execution_time:.2f}s"
 
         # Verify that all expected metrics are present
         expected_keys = [
-            'cpu_usage', 'memory_usage', 'disk_usage_read', 'disk_usage_write',
-            'network_usage_received', 'network_usage_sent', 'psutil_available'
+            "cpu_usage",
+            "memory_usage",
+            "disk_usage_read",
+            "disk_usage_write",
+            "network_usage_received",
+            "network_usage_sent",
+            "psutil_available",
         ]
 
         for key in expected_keys:
             assert key in output_data, f"Missing performance metric: {key}"
-            assert isinstance(output_data[key], (int, float, bool)), f"Invalid type for {key}"
+            assert isinstance(
+                output_data[key], (int, float, bool)
+            ), f"Invalid type for {key}"
