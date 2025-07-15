@@ -117,12 +117,6 @@ jobs:
           context: .
           file: ./Containerfile
           push: false
-          tags: zt-monitoring:test
-          load: true
-
-      - name: Test container runs
-        run: |
-          docker run --rm zt-monitoring:test --help || true
 
   report:
     name: CI Report
