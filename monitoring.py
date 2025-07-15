@@ -96,8 +96,8 @@ def get_disk_io():
                         # Skip partitions (look for devices like sda, nvme0n1, etc.)
                         device = fields[2]
                         if not any(char.isdigit() for char in device[-1:]):  # Skip numbered partitions
-                            read_count += int(fields[5])   # reads completed
-                            write_count += int(fields[9])  # writes completed
+                            read_count += int(fields[3])   # reads completed
+                            write_count += int(fields[7])  # writes completed
 
             return read_count, write_count
         except (IOError, ValueError, IndexError):
